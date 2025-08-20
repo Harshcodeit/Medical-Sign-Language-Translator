@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Medical Sign Language — Working Prototype</title>
+     <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <span class="tag">WinnerPov</span>
+    <h1>Medical Sign Language Translator — <span style="color:var(--accent)">Prototype</span></h1>
+  </header>
+
+  <main>
+    <section class="card stack">
+      <div class="row" style="justify-content: space-between">
+        <div>
+          <div class="big">Live Sign → Text</div>
+          <div class="sub">Runs in-browser with MediaPipe Hands + simple rule-based classifier.</div>
+        </div>
+        <div class="row">
+          <button id="btnStart" class="cta primary">Start Camera</button>
+          <button id="btnStop" class="cta">Stop</button>
+        </div>
+      </div>
+
+      <div class="cam-wrap">
+        <video id="video" playsinline></video>
+        <canvas id="canvas" class="overlay"></canvas>
+      </div>
+
+      <div class="grid">
+        <div class="card stack">
+          <div class="sub">Current Translation</div>
+          <div id="current" class="big">—</div>
+          <div class="sub">Confidence: <span id="conf" class="mono">0.00</span></div>
+        </div>
+        <div class="card stack">
+          <div class="sub">Frame Stats</div>
+          <div class="row"><span class="pill">FPS: <span id="fps">0</span></span><span class="pill">Handedness: <span id="handed">–</span></span><span class="pill">Landmarks: <span id="lm">0</span></span></div>
+        </div>
+      </div>
+
+      <div class="card stack">
+        <div class="row" style="justify-content: space-between; align-items: baseline;">
+          <div>
+            <div class="sub">Detected Phrase History</div>
+            <div class="sub">(saves locally – export anytime)</div>
+          </div>
+          <div class="row">
+            <button id="btnClear" class="cta warn">Clear</button>
+            <button id="btnExport" class="cta">Export .txt</button>
+          </div>
+        </div>
+        <div id="history" class="history"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Legend & How it works -->
+    <aside class="card stack">
+      <div class="big">Prototype Medical Vocabulary</div>
+      <div class="sub">Show these simple signs to test the prototype:</div>
+
+      <div class="stack">
+        <div class="row"><span class="badge">HELP</span> Open palm (all fingers extended)</div>
+        <div class="row"><span class="badge">PAIN</span> Closed fist</div>
+        <div class="row"><span class="badge">FEVER</span> Index finger only</div>
+        <div class="row"><span class="badge">WATER</span> Index + Middle (V)</div>
+        <div class="row"><span class="badge">MEDICINE</span> Thumb up</div>
+        <div class="row"><span class="badge">ALLERGY</span> Thumb + Index pinch (tips close)</div>
+      </div>
+
+      <hr style="border-color: rgba(148,163,184,0.15); width: 100%" />
+
+      <div class="big">How it works</div>
+      <ul class="sub">
+        <li>MediaPipe detects 21 hand landmarks in each frame.</li>
+        <li>We infer which fingers are open/closed by comparing tip &amp; pip joints.</li>
+        <li>We add simple geometric checks (pinch distance, thumb direction).</li>
+        <li>A rolling window does majority-vote smoothing to reduce jitter.</li>
+      </ul>
+
+      <div class="card stack">
+        <div class="sub">Notes</div>
+        <ul class="sub">
+          <li>Works best against a plain background with good lighting.</li>
+          <li>Keep your hand ~30–60 cm from camera.</li>
+          <li>Supports both hands; thumb logic adapts to handedness.</li>
+        </ul>
+      </div>
+
+      <div class="card stack">
+        <div class="sub">Roadmap hooks (already coded)</div>
+        <ul class="sub">
+          <li>Swap rule-based logic with a small TF.js model (plug-in point in code).</li>
+          <li>WebSocket stub ready for doctor dashboard streaming.</li>
+          <li>Exportable transcript for EHR notes (mocked as .txt now).</li>
+        </ul>
+      </div>
+    </aside>
+  </main>
+
+  <footer>
+    Built for rapid prototyping • On-device • No cloud calls • HIPAA-ready architecture path
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
