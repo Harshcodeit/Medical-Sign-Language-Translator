@@ -33,12 +33,12 @@ export default function Dashboard() {
         {/* Appointments Card */}
         <Card className="bg-[#0f172a] text-[#e5e7eb] border border-[#34d399]">
           <CardContent>
-            <h2 className="text-xl font-semibold mb-2">Appointments</h2>
+            <h2 className="text-xl font-semibold mb-2">Add Patients</h2>
             <p className="text-[#94a3b8] mb-4">
-              Schedule and track appointments easily.
+              Add new patients to the sign language translator.
             </p>
             <Button className="bg-[#34d399] hover:bg-[#22d3ee] text-black font-semibold">
-              Manage Appointments
+              Add patients
             </Button>
           </CardContent>
         </Card>
