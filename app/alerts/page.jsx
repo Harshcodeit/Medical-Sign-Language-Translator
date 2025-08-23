@@ -1,87 +1,48 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
-import {
-  collection,
-  onSnapshot,
-  query,
-  orderBy,
-  addDoc,
-  serverTimestamp,
-} from "firebase/firestore";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { ref, onValue } from "firebase/database";
 
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, "alerts"), orderBy("timestamp", "desc"));
-    const unsub = onSnapshot(q, (snapshot) => {
-      const list = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setAlerts(list);
-      setLoading(false);
+    const alertsRef = ref(db, "transcription");
+    const unsubscribe = onValue(alertsRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      // flatten nested objects for demo
+      const list = Object.values(data).map((item) =>
+        typeof item === "object" ? Object.values(item)[0] : item
+      );
+      setAlerts(list.reverse()); // latest first
     });
 
-    return () => unsub();
+    return () => unsubscribe();
   }, []);
 
-  const handleAddDummyAlert = async () => {
-    await addDoc(collection(db, "alerts"), {
-      patient: "John Doe",
-      type: "High Heart Rate",
-      severity: "High",
-      timestamp: serverTimestamp(),
-    });
-  };
-
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">⚠️ Alerts</h1>
+    <div className="p-6 min-h-screen bg-[#0b1220] text-white">
+      <h1 className="text-3xl font-bold mb-6 text-cyan-400">Alerts</h1>
 
-      <Button onClick={handleAddDummyAlert} className="mb-4">
-        Add Dummy Alert
-      </Button>
-
-      {loading ? (
-        <p>Loading alerts...</p>
-      ) : alerts.length === 0 ? (
-        <p>No alerts yet 🚫</p>
+      {alerts.length === 0 ? (
+        <p className="text-gray-400">No alerts found.</p>
       ) : (
-        <div className="grid gap-4">
-          {alerts.map((alert) => (
-            <Card key={alert.id} className="shadow-md">
-              <CardContent className="p-4">
-                <p>
-                  <strong>Patient:</strong> {alert.patient}
+        <div className="space-y-4">
+          {alerts.map((alert, index) => (
+            <div
+              key={index}
+              className="bg-gray-800 p-4 rounded-xl shadow-lg border-l-4 border-cyan-500 hover:shadow-cyan-500/50 transition-all"
+            >
+              <p className="text-lg font-semibold text-cyan-300">
+                {alert?.text || "No alert message"}
+              </p>
+              {alert?.createdAt && (
+                <p className="text-sm text-gray-400 mt-1">
+                  {new Date(alert.createdAt).toLocaleString()}
                 </p>
-                <p>
-                  <strong>Type:</strong> {alert.type}
-                </p>
-                <p>
-                  <strong>Severity:</strong>{" "}
-                  <span
-                    className={`px-2 py-1 rounded ${
-                      alert.severity === "High"
-                        ? "bg-red-500 text-white"
-                        : alert.severity === "Medium"
-                        ? "bg-yellow-500 text-black"
-                        : "bg-green-500 text-white"
-                    }`}
-                  >
-                    {alert.severity}
-                  </span>
-                </p>
-                <p>
-                  <strong>Time:</strong>{" "}
-                  {alert.timestamp?.toDate().toLocaleString()}
-                </p>
-              </CardContent>
-            </Card>
+              )}
+            </div>
           ))}
         </div>
       )}

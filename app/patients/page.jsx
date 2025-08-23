@@ -1,49 +1,75 @@
 "use client";
-import { useState } from "react";
-import { CardContent, Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-
-// Dummy patient data (replace with API later)
-const patients = [
-  { id: 1, name: "Rahul Sharma", age: 34, transcript: "Doctor, I feel chest pain when walking." },
-  { id: 2, name: "Priya Verma", age: 28, transcript: "I have been coughing continuously for 2 days." },
-  { id: 3, name: "Aman Gupta", age: 45, transcript: "I feel dizzy after taking my medicines." },
-];
+import { useEffect, useState } from "react";
+import { db } from "@/lib/firebase";
+import { ref, onValue } from "firebase/database";
 
 export default function PatientsPage() {
-  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [patients, setPatients] = useState([]);
+
+  useEffect(() => {
+    // Load users
+    const usersRef = ref(db, "users");
+    const unsubscribeUsers = onValue(usersRef, (snapshot) => {
+      const usersData = snapshot.val() || {};
+
+      // Load transcriptions
+      const transcriptionsRef = ref(db, "transcriptions");
+      const unsubscribeTrans = onValue(transcriptionsRef, (snap) => {
+        const transData = snap.val() || {};
+
+        const merged = Object.keys(usersData)
+          .filter((uid) => usersData[uid].role === "patient")
+          .map((uid) => {
+            // find transcript with same uid
+            const transcript = Object.values(transData).find(
+              (t) => t.userId === uid
+            );
+
+            return {
+              id: uid,
+              name: usersData[uid].displayName,
+              email: usersData[uid].email,
+              transcript: transcript ? transcript.text : "No transcript yet",
+              createdAt: transcript ? transcript.createdAt : null,
+            };
+          });
+
+        setPatients(merged);
+      });
+    });
+
+    return () => {
+      unsubscribeUsers();
+    };
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-8">
-      <h1 className="text-3xl font-bold mb-6">Patients</h1>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="p-6 min-h-screen bg-gradient-to-br from-[#0b1220] to-[#1a2235]">
+      <h1 className="text-3xl font-extrabold mb-8 text-white tracking-wide">
+        Patients
+      </h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {patients.map((patient) => (
-          <Card
+          <div
             key={patient.id}
-            className="cursor-pointer hover:shadow-lg hover:shadow-cyan-500/20 transition-all"
-            onClick={() => setSelectedPatient(patient)}
+            className="bg-[#111827] shadow-lg rounded-2xl p-6 border border-gray-700 hover:shadow-xl hover:scale-[1.02] transition-transform duration-300"
           >
-            <CardContent className="p-6">
-              <h2 className="text-xl font-semibold">{patient.name}</h2>
-              <p className="text-gray-400">Age: {patient.age}</p>
-            </CardContent>
-          </Card>
+            <h2 className="text-xl font-semibold text-white mb-1">
+              {patient.name}
+            </h2>
+            <p className="text-sm text-gray-400 mb-3">{patient.email}</p>
+
+            {patient.createdAt && (
+              <p className="text-xs text-gray-500 mt-4">
+                Last updated:{" "}
+                <span className="text-gray-400">
+                  {new Date(patient.createdAt).toLocaleString()}
+                </span>
+              </p>
+            )}
+          </div>
         ))}
       </div>
-
-      {selectedPatient && (
-        <div className="mt-10 p-6 bg-gray-900 rounded-xl shadow-lg">
-          <h2 className="text-2xl font-bold mb-4">Transcript for {selectedPatient.name}</h2>
-          <p className="text-lg text-gray-300">{selectedPatient.transcript}</p>
-          <Button
-            onClick={() => setSelectedPatient(null)}
-            className="mt-6 bg-red-500 hover:bg-red-600"
-          >
-            Close
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

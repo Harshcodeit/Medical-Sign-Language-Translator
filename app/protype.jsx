@@ -19,7 +19,7 @@ import Login from "@/components/Login";
 
 // Patient Interface Component
 function PatientInterface() {
-  const { currentUser, logout, userRole } = useAuth();
+  const { currentUser, logout, userRole , addTranscription} = useAuth();
   const [isRecording, setIsRecording] = useState(false);
   const [currentTranslation, setCurrentTranslation] = useState("—");
   const [confidence, setConfidence] = useState(0.0);
@@ -234,7 +234,18 @@ function PatientInterface() {
               phraseHistory[phraseHistory.length - 1] !== medicalSign)
           ) {
             setPhraseHistory((prev) => [...prev, medicalSign]);
-          }
+
+            // Add transcription to Firebase
+            if (currentUser?.uid) {
+              addTranscription(currentUser.uid, medicalSign)
+                .then(() => {
+                  console.log("Transcription saved");
+                })
+                .catch((error) => {
+                  console.error("Error saving transcription:", error);
+                });
+            }
+          }
         }
       }
     } else {

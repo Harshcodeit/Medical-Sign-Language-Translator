@@ -19,7 +19,7 @@ export default function AddPatient() {
     }
 
     try {
-      await push(ref(db, "patients"), {
+      await push(ref(db, "patientReports"), {
         name,
         age,
         condition,

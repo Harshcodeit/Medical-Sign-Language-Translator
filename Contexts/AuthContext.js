@@ -1,4 +1,5 @@
 "use client";
+
 import { createContext, useContext, useEffect, useState } from "react";
 import {
   signInWithEmailAndPassword,
@@ -9,7 +10,7 @@ import {
   onAuthStateChanged,
   updateProfile,
 } from "firebase/auth";
-import { ref, set, get, update, child } from "firebase/database";
+import { ref, set, get, update , push} from "firebase/database";
 import { auth, db } from "@/lib/firebase";
 
 const AuthContext = createContext();
@@ -29,8 +30,14 @@ export function AuthProvider({ children }) {
     prompt: "select_account",
   });
 
-  // Email sign up function
-  async function signup(email, password, displayName, role = "patient") {
+  // Email sign up function with reportData support
+  async function signup(
+    email,
+    password,
+    displayName,
+    role = "patient",
+    reportData = null
+  ) {
     const userCredential = await createUserWithEmailAndPassword(
       auth,
       email,
@@ -41,7 +48,7 @@ export function AuthProvider({ children }) {
     // Update display name
     await updateProfile(user, { displayName });
 
-    // Store additional user data in Realtime Database
+    // Store user basic data
     await set(ref(db, `users/${user.uid}`), {
       email: user.email,
       displayName,
@@ -51,6 +58,17 @@ export function AuthProvider({ children }) {
       authProvider: "email",
     });
 
+    // Store patient report data if role is patient and reportData provided
+    if (role === "patient" && reportData) {
+      await set(ref(db, `patientReports/${user.uid}`), {
+        userId: user.uid,
+        name: displayName,
+        email: user.email,
+        reportData,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
     return userCredential;
   }
 
@@ -59,17 +77,15 @@ export function AuthProvider({ children }) {
     return signInWithEmailAndPassword(auth, email, password);
   }
 
-  // Google sign in function
+  // Google sign in function with role support
   async function signInWithGoogle(role = "patient") {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
-      // Check if user already exists in Realtime Database
       const userSnapshot = await get(ref(db, `users/${user.uid}`));
 
       if (!userSnapshot.exists()) {
-        // New user - create their document
         await set(ref(db, `users/${user.uid}`), {
           email: user.email,
           displayName: user.displayName,
@@ -80,7 +96,6 @@ export function AuthProvider({ children }) {
           photoURL: user.photoURL,
         });
       } else {
-        // Existing user - update their last login
         await update(ref(db, `users/${user.uid}`), {
           lastLoginAt: new Date().toISOString(),
         });
@@ -105,7 +120,7 @@ export function AuthProvider({ children }) {
       if (userSnapshot.exists()) {
         return userSnapshot.val().role;
       }
-      return "patient"; // default role
+      return "patient";
     } catch (error) {
       console.error("Error getting user role:", error);
       return "patient";
@@ -126,17 +141,29 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Get patient report data by UID
+  async function getPatientReport(uid) {
+    try {
+      const reportSnapshot = await get(ref(db, `patientReports/${uid}`));
+      if (reportSnapshot.exists()) {
+        return reportSnapshot.val();
+      }
+      return null;
+    } catch (error) {
+      console.error("Error getting patient report:", error);
+      return null;
+    }
+  }
+
   // Update user profile
   async function updateUserProfile(updates) {
     if (!currentUser) throw new Error("No user logged in");
 
     try {
-      // Update Firebase Auth profile if display name is being changed
       if (updates.displayName) {
         await updateProfile(currentUser, { displayName: updates.displayName });
       }
 
-      // Update Realtime Database
       await update(ref(db, `users/${currentUser.uid}`), {
         ...updates,
         updatedAt: new Date().toISOString(),
@@ -149,7 +176,7 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Update user role (admin function)
+  // Update user role (admin)
   async function updateUserRole(uid, newRole) {
     if (!currentUser) throw new Error("No user logged in");
 
@@ -160,7 +187,6 @@ export function AuthProvider({ children }) {
         updatedBy: currentUser.uid,
       });
 
-      // Update local state if updating current user's role
       if (uid === currentUser.uid) {
         setUserRole(newRole);
       }
@@ -172,7 +198,7 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Get all users (admin function)
+  // Get all users (admin)
   async function getAllUsers() {
     try {
       const usersSnapshot = await get(ref(db, "users"));
@@ -189,7 +215,15 @@ export function AuthProvider({ children }) {
       return [];
     }
   }
-
+async function addTranscription(userId, transcriptionText, metadata = {}) {
+    const transcriptionRef = ref(db, `transcriptions/${userId}`);
+    const newTransRef = push(transcriptionRef);
+    await set(newTransRef, {
+      text: transcriptionText,
+      createdAt: new Date().toISOString(),
+      ...metadata,
+    });
+  }
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -216,8 +250,10 @@ export function AuthProvider({ children }) {
     updateUserProfile,
     updateUserRole,
     getUserData,
+    getPatientReport,
     getAllUsers,
     loading,
+    addTranscription
   };
 
   return (
