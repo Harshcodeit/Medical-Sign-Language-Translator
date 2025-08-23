@@ -2,7 +2,8 @@
 
 import { useAuth } from "@/Contexts/AuthContext";
 import Login from "../components/Login";
-import EnhancedPrototype from "./protype";
+import EnhancedPrototype from "./protype"; // Patient Dashboard
+import Dashboard from "./dashboard/page"; // Doctor Dashboard
 
 export default function HomePage() {
   const { currentUser, loading } = useAuth();
@@ -15,5 +16,17 @@ export default function HomePage() {
     );
   }
 
-  return currentUser ? <EnhancedPrototype /> : <Login />;
+  if (!currentUser) {
+    return <Login />;
+  }
+
+  // Use currentUser.role or whatever field holds role info
+  const role = currentUser?.role || currentUser?.userRole; // adjust based on your user object
+
+  if (role === "doctor") {
+    return <Dashboard />;
+  }
+
+  // Assume patient if not doctor; render patient dashboard
+  return <EnhancedPrototype />;
 }
