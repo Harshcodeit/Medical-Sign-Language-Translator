@@ -20,7 +20,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({
     totalPatients: 0,
     activeToday: 0,
-    pendingAlerts: 3,
+    pendingAlerts: 0,
   });
 
   useEffect(() => {
@@ -114,7 +114,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 w-full">
           <div className="bg-slate-800/50 backdrop-blur-lg p-6 rounded-2xl border border-slate-700 shadow-2xl">
             <div className="flex items-center justify-between">
               <div>
@@ -148,16 +148,6 @@ export default function Dashboard() {
                 </p>
               </div>
               <AlertTriangle className="w-8 h-8 text-yellow-400" />
-            </div>
-          </div>
-
-          <div className="bg-slate-800/50 backdrop-blur-lg p-6 rounded-2xl border border-slate-700 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">This Month</p>
-                <p className="text-2xl font-bold text-purple-400">156</p>
-              </div>
-              <Calendar className="w-8 h-8 text-purple-400" />
             </div>
           </div>
         </div>
@@ -341,25 +331,14 @@ export default function Dashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <button className="flex items-center gap-3 p-4 bg-slate-800/30 hover:bg-slate-800/50 rounded-xl border border-slate-700 transition-colors">
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button className="flex items-center justify-center gap-3 p-4 bg-slate-800/30 hover:bg-slate-800/50 rounded-xl border border-slate-700 transition-colors">
             <FileText className="w-5 h-5 text-blue-400" />
             <span className="text-gray-300">Generate Reports</span>
           </button>
-
-          <button className="flex items-center gap-3 p-4 bg-slate-800/30 hover:bg-slate-800/50 rounded-xl border border-slate-700 transition-colors">
-            <Settings className="w-5 h-5 text-purple-400" />
-            <span className="text-gray-300">System Settings</span>
-          </button>
-
-          <button className="flex items-center gap-3 p-4 bg-slate-800/30 hover:bg-slate-800/50 rounded-xl border border-slate-700 transition-colors">
+          <button className="flex items-center justify-center gap-3 p-4 bg-slate-800/30 hover:bg-slate-800/50 rounded-xl border border-slate-700 transition-colors">
             <Activity className="w-5 h-5 text-green-400" />
             <span className="text-gray-300">Live Monitoring</span>
-          </button>
-
-          <button className="flex items-center gap-3 p-4 bg-slate-800/30 hover:bg-slate-800/50 rounded-xl border border-slate-700 transition-colors">
-            <Calendar className="w-5 h-5 text-yellow-400" />
-            <span className="text-gray-300">Schedule Review</span>
           </button>
         </div>
       </main>
