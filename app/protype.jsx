@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/Contexts/AuthContext";
 import {
   LogOut,
@@ -122,14 +122,323 @@ function PatientInterface() {
   const [landmarks, setLandmarks] = useState(0);
   const [phraseHistory, setPhraseHistory] = useState([]);
 
-  const handleStartCamera = () => {
-    setIsRecording(true);
-    // Add your MediaPipe camera logic here
+  // MediaPipe related refs and state
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const holisticRef = useRef(null);
+  const cameraRef = useRef(null);
+  const lastFrameTimeRef = useRef(0);
+  const frameCountRef = useRef(0);
+
+  // Medical sign language gestures mapping
+  const medicalSigns = {
+    open_palm: "HELP",
+    closed_fist: "PAIN",
+    index_finger: "FEVER",
+    victory_sign: "WATER",
+    thumbs_up: "MEDICINE",
+    pinch: "ALLERGY",
+  };
+
+  useEffect(() => {
+    // Load MediaPipe scripts
+    const loadMediaPipe = async () => {
+      if (typeof window !== "undefined" && !window.Holistic) {
+        // Load MediaPipe Holistic
+        const script1 = document.createElement("script");
+        script1.src =
+          "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js";
+        script1.crossOrigin = "anonymous";
+        document.head.appendChild(script1);
+
+        const script2 = document.createElement("script");
+        script2.src =
+          "https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js";
+        script2.crossOrigin = "anonymous";
+        document.head.appendChild(script2);
+
+        const script3 = document.createElement("script");
+        script3.src =
+          "https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js";
+        script3.crossOrigin = "anonymous";
+        document.head.appendChild(script3);
+
+        const script4 = document.createElement("script");
+        script4.src =
+          "https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js";
+        script4.crossOrigin = "anonymous";
+        document.head.appendChild(script4);
+      }
+    };
+
+    loadMediaPipe();
+  }, []);
+
+  const calculateFPS = () => {
+    const now = performance.now();
+    frameCountRef.current++;
+
+    if (now - lastFrameTimeRef.current >= 1000) {
+      setFps(frameCountRef.current);
+      frameCountRef.current = 0;
+      lastFrameTimeRef.current = now;
+    }
+  };
+
+  const classifyGesture = (handLandmarks) => {
+    if (!handLandmarks || handLandmarks.length === 0) return null;
+
+    try {
+      // Get key landmark positions
+      const thumbTip = handLandmarks[4];
+      const indexTip = handLandmarks[8];
+      const middleTip = handLandmarks[12];
+      const ringTip = handLandmarks[16];
+      const pinkyTip = handLandmarks[20];
+      const wrist = handLandmarks[0];
+
+      // Calculate distances and positions for gesture recognition
+      const thumbUp = thumbTip.y < handLandmarks[3].y;
+      const indexUp = indexTip.y < handLandmarks[6].y;
+      const middleUp = middleTip.y < handLandmarks[10].y;
+      const ringUp = ringTip.y < handLandmarks[14].y;
+      const pinkyUp = pinkyTip.y < handLandmarks[18].y;
+
+      // Distance between thumb and index finger for pinch
+      const thumbIndexDist = Math.sqrt(
+        Math.pow(thumbTip.x - indexTip.x, 2) +
+          Math.pow(thumbTip.y - indexTip.y, 2)
+      );
+
+      // Gesture classification logic
+      if (thumbUp && !indexUp && !middleUp && !ringUp && !pinkyUp) {
+        return { gesture: "thumbs_up", confidence: 0.95 };
+      } else if (!thumbUp && indexUp && !middleUp && !ringUp && !pinkyUp) {
+        return { gesture: "index_finger", confidence: 0.9 };
+      } else if (!thumbUp && indexUp && middleUp && !ringUp && !pinkyUp) {
+        return { gesture: "victory_sign", confidence: 0.85 };
+      } else if (!thumbUp && !indexUp && !middleUp && !ringUp && !pinkyUp) {
+        return { gesture: "closed_fist", confidence: 0.88 };
+      } else if (thumbIndexDist < 0.05) {
+        return { gesture: "pinch", confidence: 0.82 };
+      } else if (thumbUp && indexUp && middleUp && ringUp && pinkyUp) {
+        return { gesture: "open_palm", confidence: 0.8 };
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error classifying gesture:", error);
+      return null;
+    }
+  };
+
+  const onResults = (results) => {
+    calculateFPS();
+
+    if (!canvasRef.current || !videoRef.current) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+
+    // Set canvas size to match video
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw hand landmarks if detected
+    if (results.rightHandLandmarks || results.leftHandLandmarks) {
+      const handLandmarks =
+        results.rightHandLandmarks || results.leftHandLandmarks;
+      const handedness = results.rightHandLandmarks ? "Right" : "Left";
+
+      setHandedness(handedness);
+      setLandmarks(handLandmarks.length);
+
+      // Draw landmarks
+      ctx.fillStyle = "#00ffff";
+      ctx.strokeStyle = "#00ffff";
+      ctx.lineWidth = 2;
+
+      // Draw hand landmarks
+      handLandmarks.forEach((landmark, index) => {
+        const x = landmark.x * canvas.width;
+        const y = landmark.y * canvas.height;
+
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+
+      // Draw hand connections
+      const connections = [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 4], // Thumb
+        [0, 5],
+        [5, 6],
+        [6, 7],
+        [7, 8], // Index
+        [0, 9],
+        [9, 10],
+        [10, 11],
+        [11, 12], // Middle
+        [0, 13],
+        [13, 14],
+        [14, 15],
+        [15, 16], // Ring
+        [0, 17],
+        [17, 18],
+        [18, 19],
+        [19, 20], // Pinky
+        [5, 9],
+        [9, 13],
+        [13, 17], // Palm
+      ];
+
+      connections.forEach(([start, end]) => {
+        if (handLandmarks[start] && handLandmarks[end]) {
+          const startX = handLandmarks[start].x * canvas.width;
+          const startY = handLandmarks[start].y * canvas.height;
+          const endX = handLandmarks[end].x * canvas.width;
+          const endY = handLandmarks[end].y * canvas.height;
+
+          ctx.beginPath();
+          ctx.moveTo(startX, startY);
+          ctx.lineTo(endX, endY);
+          ctx.stroke();
+        }
+      });
+
+      // Classify gesture
+      const gestureResult = classifyGesture(handLandmarks);
+      if (gestureResult) {
+        const medicalSign = medicalSigns[gestureResult.gesture];
+        if (medicalSign) {
+          setCurrentTranslation(medicalSign);
+          setConfidence(gestureResult.confidence);
+
+          // Add to history if confidence is high enough and it's different from last
+          if (
+            gestureResult.confidence > 0.75 &&
+            (phraseHistory.length === 0 ||
+              phraseHistory[phraseHistory.length - 1] !== medicalSign)
+          ) {
+            setPhraseHistory((prev) => [...prev, medicalSign]);
+          }
+        }
+      }
+    } else {
+      setHandedness("–");
+      setLandmarks(0);
+      setCurrentTranslation("—");
+      setConfidence(0.0);
+    }
+  };
+
+  const handleStartCamera = async () => {
+    try {
+      // Get video stream
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: "user",
+        },
+      });
+
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+
+      // Initialize MediaPipe Holistic
+      if (window.Holistic) {
+        holisticRef.current = new window.Holistic({
+          locateFile: (file) =>
+            `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`,
+        });
+
+        holisticRef.current.setOptions({
+          modelComplexity: 1,
+          smoothLandmarks: true,
+          enableSegmentation: false,
+          smoothSegmentation: false,
+          refineFaceLandmarks: false,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+        });
+
+        holisticRef.current.onResults(onResults);
+
+        // Initialize camera
+        if (window.Camera) {
+          cameraRef.current = new window.Camera(videoRef.current, {
+            onFrame: async () => {
+              if (holisticRef.current && videoRef.current) {
+                await holisticRef.current.send({ image: videoRef.current });
+              }
+            },
+            width: 640,
+            height: 480,
+          });
+
+          cameraRef.current.start();
+        }
+      }
+
+      setIsRecording(true);
+      lastFrameTimeRef.current = performance.now();
+    } catch (error) {
+      console.error("Error starting camera:", error);
+      alert(
+        "Could not access camera. Please ensure camera permissions are granted."
+      );
+    }
   };
 
   const handleStopCamera = () => {
+    // Stop MediaPipe camera
+    if (cameraRef.current) {
+      cameraRef.current.stop();
+      cameraRef.current = null;
+    }
+
+    // Close MediaPipe holistic
+    if (holisticRef.current) {
+      holisticRef.current.close();
+      holisticRef.current = null;
+    }
+
+    // Stop video stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    // Clear video element
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    // Clear canvas
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext("2d");
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+
+    // Reset states
     setIsRecording(false);
-    // Stop camera logic here
+    setCurrentTranslation("—");
+    setConfidence(0.0);
+    setFps(0);
+    setHandedness("–");
+    setLandmarks(0);
   };
 
   const handleClearHistory = () => {
@@ -148,12 +457,24 @@ function PatientInterface() {
   };
 
   const handleLogout = async () => {
+    // Stop camera before logout
+    if (isRecording) {
+      handleStopCamera();
+    }
+
     try {
       await logout();
     } catch (error) {
       console.error("Failed to log out", error);
     }
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      handleStopCamera();
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-gray-100">
@@ -225,19 +546,24 @@ function PatientInterface() {
           {/* Camera Feed */}
           <div className="relative w-full h-64 bg-black/50 rounded-xl overflow-hidden mb-6 border border-slate-600">
             <video
-              id="video"
+              ref={videoRef}
               playsInline
               className="w-full h-full object-cover"
+              style={{ transform: "scaleX(-1)" }} // Mirror the video
             />
             <canvas
-              id="canvas"
+              ref={canvasRef}
               className="absolute top-0 left-0 w-full h-full"
+              style={{ transform: "scaleX(-1)" }} // Mirror the canvas
             />
             {!isRecording && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
                 <div className="text-center">
                   <Camera className="w-12 h-12 mx-auto mb-2 text-gray-500" />
                   <p className="text-gray-400">Camera not active</p>
+                  <p className="text-gray-500 text-xs mt-1">
+                    Click "Start Camera" to begin
+                  </p>
                 </div>
               </div>
             )}
@@ -445,8 +771,7 @@ function AuthComponent() {
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setLoading(true);
     setError("");
 
@@ -502,7 +827,7 @@ function AuthComponent() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4">
           {!isLogin && (
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -588,7 +913,7 @@ function AuthComponent() {
           )}
 
           <button
-            type="submit"
+            onClick={handleSubmit}
             disabled={loading}
             className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-200 shadow-lg"
           >
@@ -598,7 +923,7 @@ function AuthComponent() {
               ? "Sign In"
               : "Create Account"}
           </button>
-        </form>
+        </div>
 
         <div className="mt-6">
           <div className="relative">
