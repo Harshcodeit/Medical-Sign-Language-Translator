@@ -1,5 +1,7 @@
-import * as React from "react";
+"use client"; 
+  import * as React from "react";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/Contexts/AuthContext";
 import {
   LogOut,
@@ -14,6 +16,7 @@ import {
 } from "lucide-react";
 
 export default function Dashboard() {
+  const router = useRouter();
   const { currentUser, logout, userRole, getAllUsers } = useAuth();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -22,6 +25,26 @@ export default function Dashboard() {
     activeToday: 0,
     pendingAlerts: 0,
   });
+    // Example handlers
+  const handleViewAllPatients = () => {
+    router.push("/patients"); // navigate to /patients page
+  };
+
+  const handleAddPatient = () => {
+    router.push("/patients/new"); // navigate to patient registration form
+  };
+
+  const handleViewAlerts = () => {
+    router.push("/alerts"); // navigate to alerts page
+  };
+
+  const handleGenerateReports = () => {
+    router.push("/reports"); // navigate to reports page
+  };
+
+  const handleLiveMonitoring = () => {
+    router.push("/monitoring"); // navigate to monitoring page
+  };
 
   useEffect(() => {
     loadPatients();
@@ -177,7 +200,7 @@ export default function Dashboard() {
                 • Export patient reports
               </div>
             </div>
-            <button className="w-full px-4 py-2 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white font-semibold rounded-lg transition-all duration-200">
+            <button onClick={handleViewAllPatients} className="w-full px-4 py-2 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white font-semibold rounded-lg transition-all duration-200">
               View All Patients ({stats.totalPatients})
             </button>
           </div>
@@ -204,7 +227,7 @@ export default function Dashboard() {
                 • Send welcome instructions
               </div>
             </div>
-            <button className="w-full px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold rounded-lg transition-all duration-200">
+            <button onClick={handleAddPatient} className="w-full px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold rounded-lg transition-all duration-200">
               Add New Patient
             </button>
           </div>
@@ -234,7 +257,7 @@ export default function Dashboard() {
                 <span className="text-blue-400">3 unread</span>
               </div>
             </div>
-            <button className="w-full px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-lg transition-all duration-200">
+            <button onClick={handleViewAlerts} className="w-full px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-lg transition-all duration-200">
               View All Alerts
             </button>
           </div>
@@ -332,11 +355,11 @@ export default function Dashboard() {
 
         {/* Quick Actions */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button className="flex items-center justify-center gap-3 p-4 bg-slate-800/30 hover:bg-slate-800/50 rounded-xl border border-slate-700 transition-colors">
+          <button onClick={handleGenerateReports} className="flex items-center justify-center gap-3 p-4 bg-slate-800/30 hover:bg-slate-800/50 rounded-xl border border-slate-700 transition-colors">
             <FileText className="w-5 h-5 text-blue-400" />
             <span className="text-gray-300">Generate Reports</span>
           </button>
-          <button className="flex items-center justify-center gap-3 p-4 bg-slate-800/30 hover:bg-slate-800/50 rounded-xl border border-slate-700 transition-colors">
+          <button onClick={handleLiveMonitoring} className="flex items-center justify-center gap-3 p-4 bg-slate-800/30 hover:bg-slate-800/50 rounded-xl border border-slate-700 transition-colors">
             <Activity className="w-5 h-5 text-green-400" />
             <span className="text-gray-300">Live Monitoring</span>
           </button>
